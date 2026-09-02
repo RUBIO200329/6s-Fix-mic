@@ -5,7 +5,7 @@ THEOS_PACKAGE_SCHEME = rootless
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = MicDefault
-MicDefault_FILES = Tweak.x
+MicDefault_FILES = Tweak.xm
 MicDefault_FRAMEWORKS = AVFoundation Foundation
 
 TOOL_NAME = micdefault
