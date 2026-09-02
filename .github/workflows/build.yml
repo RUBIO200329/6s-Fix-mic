@@ -24,9 +24,10 @@ jobs:
           rm -rf master.zip sdks-master
 
       - name: Build Package
+        env:
+          THEOS: /Users/runner/theos
         run: |
-          export THEOS=$HOME/theos
-          $HOME/theos/bin/make package FINALPACKAGE=1
+          make package FINALPACKAGE=1
 
       - name: Upload DEB Artifact
         uses: actions/upload-artifact@v4
