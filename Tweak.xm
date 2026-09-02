@@ -5,7 +5,23 @@
 static NSString *preferredOrientation() {
     NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:PLIST_PATH];
     NSString *val = prefs[@"MicSource"];
-    return val ?: @"Bottom"; // Bottom / Front / Back
+    return val ?: @"Bottom";
+}
+
+static AVAudioSessionPortDescription *portWithWantedSource(AVAudioSession *session, NSString *wanted) {
+    for (AVAudioSessionPortDescription *port in session.availableInputs) {
+        if ([port.portType isEqualToString:AVAudioSessionPortBuiltInMic]) {
+            for (AVAudioSessionDataSourceDescription *src in port.dataSources) {
+                if ([src.orientation isEqualToString:wanted]) {
+                    NSError *err = nil;
+                    [port setPreferredDataSource:src error:&err];
+                    NSLog(@"[MicDefault] dataSource -> %@ (err: %@)", wanted, err);
+                    return port;
+                }
+            }
+        }
+    }
+    return nil;
 }
 
 %hook AVAudioSession
@@ -14,24 +30,23 @@ static NSString *preferredOrientation() {
     BOOL result = %orig;
     if (active) {
         NSString *wanted = preferredOrientation();
-        for (AVAudioSessionPortDescription *port in self.availableInputs) {
-            if ([port.portType isEqualToString:AVAudioSessionPortBuiltInMic]) {
-                for (AVAudioSessionDataSourceDescription *src in port.dataSources) {
-                    if ([src.orientation isEqualToString:wanted]) {
-                        NSError *err = nil;
-                        [port setPreferredDataSource:src error:&err];
-                        [self setPreferredInput:port error:&err];
-                        break;
-                    }
-                }
-            }
+        AVAudioSessionPortDescription *port = portWithWantedSource(self, wanted);
+        if (port) {
+            NSError *err = nil;
+            [self setPreferredInput:port error:&err];
+            NSLog(@"[MicDefault] setActive -> preferredInput forzado (err: %@)", err);
         }
     }
     return result;
 }
 
-%end
-
-%ctor {
-    // se carga en cualquier proceso que enlace UIKit (ver filtro en control/Info.plist de Substrate)
+- (BOOL)setPreferredInput:(AVAudioSessionPortDescription *)inPort error:(NSError **)outError {
+    NSString *wanted = preferredOrientation();
+    if ([inPort.portType isEqualToString:AVAudioSessionPortBuiltInMic]) {
+        portWithWantedSource(self, wanted);
+    }
+    NSLog(@"[MicDefault] setPreferredInput interceptado, forzando %@", wanted);
+    return %orig(inPort, outError);
 }
+
+%end
