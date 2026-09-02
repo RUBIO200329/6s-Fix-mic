@@ -23,7 +23,14 @@ jobs:
         run: |
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
           rm -rf $HOME/theos/sdks
-          git clone --depth=1 https://github.com/theos/sdks.git $HOME/theos/sdks
+          mkdir -p $HOME/theos/sdks
+          cd $HOME/theos/sdks
+          git init
+          git remote add origin https://github.com/theos/sdks.git
+          git sparse-checkout init --cone
+          git sparse-checkout set iPhoneOS15.5.sdk
+          git pull origin master --depth=1
+
 
       - name: Build Package
         env:
