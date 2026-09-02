@@ -15,18 +15,17 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Theos and SDKs
+      - name: Setup Theos and iOS 15.5 SDK
         run: |
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
           curl -LO https://github.com/theos/sdks/archive/master.zip
-          unzip master.zip
+          unzip -q master.zip
           mv sdks-master/* $HOME/theos/sdks/
           rm -rf master.zip sdks-master
 
       - name: Build Package
-        env:
-          THEOS: ${{ github.workspace }}/../theos
         run: |
+          export THEOS=$HOME/theos
           $HOME/theos/bin/make package FINALPACKAGE=1
 
       - name: Upload DEB Artifact
