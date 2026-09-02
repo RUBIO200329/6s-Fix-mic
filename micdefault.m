@@ -1,3 +1,4 @@
+#import <sys/stat.h>
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
 
