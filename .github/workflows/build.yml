@@ -15,13 +15,15 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Dependencies
+        run: |
+          brew install ldid
+
       - name: Setup Theos and SDKs
         run: |
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
-          curl -LO https://github.com/theos/sdks/archive/refs/heads/master.zip
-          unzip -q master.zip
-          cp -R sdks-master/* $HOME/theos/sdks/
-          rm -rf master.zip sdks-master
+          rm -rf $HOME/theos/sdks
+          git clone --depth=1 https://github.com/theos/sdks.git $HOME/theos/sdks
 
       - name: Build Package
         env:
