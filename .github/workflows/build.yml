@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-13
+    runs-on: macos-latest
 
     steps:
       - name: Checkout repository
@@ -16,7 +16,7 @@ jobs:
           submodules: recursive
 
       - name: Setup Theos
-        uses: Randomblock1/theos-action@v1
+        uses: theos/setup-theos@v1
 
       - name: Build Package
         run: |
