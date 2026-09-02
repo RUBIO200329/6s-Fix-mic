@@ -1,45 +1,52 @@
-name: Build Tweak
+#import <AVFoundation/AVFoundation.h>
 
-on:
-  push:
-    branches: [ main, master ]
-  workflow_dispatch:
+#define PLIST_PATH @"/var/mobile/Library/Preferences/com.tuusuario.micdefault.plist"
 
-jobs:
-  build:
-    runs-on: macos-latest
+static NSString *preferredOrientation() {
+    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:PLIST_PATH];
+    NSString *val = prefs[@"MicSource"];
+    return val ?: @"Bottom"; // Bottom / Front / Back
+}
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
+static AVAudioSessionPortDescription *portWithWantedSource(AVAudioSession *session, NSString *wanted) {
+    for (AVAudioSessionPortDescription *port in session.availableInputs) {
+        if ([port.portType isEqualToString:AVAudioSessionPortBuiltInMic]) {
+            for (AVAudioSessionDataSourceDescription *src in port.dataSources) {
+                if ([src.orientation isEqualToString:wanted]) {
+                    NSError *err = nil;
+                    [port setPreferredDataSource:src error:&err];
+                    NSLog(@"[MicDefault] dataSource -> %@ (err: %@)", wanted, err);
+                    return port;
+                }
+            }
+        }
+    }
+    return nil;
+}
 
-      - name: Install Dependencies
-        run: |
-          brew install ldid
+%hook AVAudioSession
 
-      - name: Setup Theos and SDKs
-        run: |
-          git clone --recursive https://github.com/theos/theos.git $HOME/theos
-          rm -rf $HOME/theos/sdks
-          mkdir -p $HOME/theos/sdks
-          cd $HOME/theos/sdks
-          git init
-          git remote add origin https://github.com/theos/sdks.git
-          git sparse-checkout init --cone
-          git sparse-checkout set iPhoneOS15.5.sdk
-          git pull origin master --depth=1
+- (BOOL)setActive:(BOOL)active error:(NSError **)outError {
+    BOOL result = %orig;
+    if (active) {
+        NSString *wanted = preferredOrientation();
+        AVAudioSessionPortDescription *port = portWithWantedSource(self, wanted);
+        if (port) {
+            NSError *err = nil;
+            [self setPreferredInput:port error:&err];
+            NSLog(@"[MicDefault] setActive -> preferredInput forzado (err: %@)", err);
+        }
+    }
+    return result;
+}
 
+- (BOOL)setPreferredInput:(AVAudioSessionPortDescription *)inPort error:(NSError **)outError {
+    NSString *wanted = preferredOrientation();
+    if ([inPort.portType isEqualToString:AVAudioSessionPortBuiltInMic]) {
+        portWithWantedSource(self, wanted);
+    }
+    NSLog(@"[MicDefault] setPreferredInput interceptado, forzando %@", wanted);
+    return %orig(inPort, outError);
+}
 
-      - name: Build Package
-        env:
-          THEOS: /Users/runner/theos
-        run: |
-          make package FINALPACKAGE=1
-
-      - name: Upload DEB Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: MicDefault-DEB
-          path: packages/*.deb
+%end
