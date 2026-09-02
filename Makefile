@@ -1,11 +1,11 @@
-ARCHS = arm64
-TARGET = iphone:clang:15.5:15.0
+ARCHS = arm64 arm64e
+TARGET = iphone:clang:latest:15.0
 THEOS_PACKAGE_SCHEME = rootless
 
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = MicDefault
-MicDefault_FILES = Tweak.xm
+MicDefault_FILES = Tweak.x
 MicDefault_FRAMEWORKS = AVFoundation Foundation
 
 TOOL_NAME = micdefault
