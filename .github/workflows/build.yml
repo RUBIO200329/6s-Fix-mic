@@ -15,12 +15,19 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Theos
-        uses: theos/setup-theos@v1
+      - name: Setup Theos and SDKs
+        run: |
+          git clone --recursive https://github.com/theos/theos.git $HOME/theos
+          curl -LO https://github.com/theos/sdks/archive/master.zip
+          unzip master.zip
+          mv sdks-master/* $HOME/theos/sdks/
+          rm -rf master.zip sdks-master
 
       - name: Build Package
+        env:
+          THEOS: ${{ github.workspace }}/../theos
         run: |
-          make package FINALPACKAGE=1
+          $HOME/theos/bin/make package FINALPACKAGE=1
 
       - name: Upload DEB Artifact
         uses: actions/upload-artifact@v4
