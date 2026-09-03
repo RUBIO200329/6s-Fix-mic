@@ -1,20 +1,20 @@
+THEOS_PACKAGE_SCHEME ?= rootless
+
 ARCHS = arm64
 TARGET = iphone:clang:latest:15.0
-THEOS_PACKAGE_SCHEME = rootless
+FINALPACKAGE = 1
 
 include $(THEOS)/makefiles/common.mk
 
-TWEAK_NAME = MicDefault
-MicDefault_FILES = Tweak.xm
-MicDefault_FRAMEWORKS = AVFoundation Foundation
+TWEAK_NAME = MicSelect
 
-TOOL_NAME = micdefault
-micdefault_FILES = micdefault.m
-micdefault_CFLAGS = -fobjc-arc
-micdefault_FRAMEWORKS = Foundation AVFoundation
+MicSelect_FILES = Tweak.xm
+MicSelect_FRAMEWORKS = Foundation AVFAudio
+MicSelect_CFLAGS = -fobjc-arc
+
+INSTALL_TARGET_PROCESSES = SpringBoard
 
 include $(THEOS_MAKE_PATH)/tweak.mk
-include $(THEOS_MAKE_PATH)/tool.mk
 
-after-install::
-	install.exec "killall -9 SpringBoard"
+SUBPROJECTS += Prefs
+include $(THEOS_MAKE_PATH)/aggregate.mk

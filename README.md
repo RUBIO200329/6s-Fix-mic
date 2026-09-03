@@ -1,69 +1,38 @@
-# MicDefault — compilar en CachyOS (Arch) e instalar en el iPhone 6s por SSH
+# MicSelect
 
-No lo he podido compilar yo: necesita el SDK de iOS (frameworks Foundation/AVFoundation),
-que es propiedad de Apple. Tampoco tengo forma de conectarme a tu iPhone ni a tu equipo.
-Esto deja todo listo para que en CachyOS solo sea `make package` y un `scp`.
+Diagnostic Theos tweak base for iPhone 6s / iOS 15.
 
-## 1. Dependencias en CachyOS
-Theos en Linux usa su propio toolchain (clang con soporte de targets Darwin/arm64
-más el SDK de iOS embebido que trae el propio instalador, no necesitas Xcode).
-Con `pacman` cubres casi todo; `ldid` (firmador de binarios que Theos necesita en
-Linux) solo está en AUR, así que va con `paru`, como ya lo tienes configurado:
+## Purpose
 
-```bash
-sudo pacman -Syu --needed curl git perl base-devel coreutils xz clang lld
-paru -S --needed ldid-git
-```
+v0.1 enumerates AVAudioSession built-in microphone data sources when an
+audio session becomes active. It does NOT force a microphone yet.
 
-## 2. Instalar Theos en tu equipo
-```bash
-export THEOS=~/theos
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
-echo 'export THEOS=$HOME/theos' >> ~/.bashrc
-echo 'export THEOS_PACKAGE_SCHEME=rootless' >> ~/.bashrc
-source ~/.bashrc
-```
-Esto descarga también `theos-sdk` (headers + stubs de las frameworks de iOS necesarios
-para linkar, sin necesitar Xcode real) y `ldid` para firmar los binarios en Linux.
+This is intentional: the next step is to inspect the actual data source
+names/IDs exposed by the iPhone 6s on the target iOS 15 build.
 
-## 3. Compilar el proyecto
-```bash
-# descomprime MicDefault.zip donde quieras, por ejemplo ~/MicDefault
-cd ~/MicDefault
-make clean
-make package FINALPACKAGE=1
-```
-El `.deb` resultante queda en `~/MicDefault/packages/`.
+## Build
 
-## 4. Habilitar SSH en el iPhone (si no lo tienes ya)
-Desde Sileo en el propio 6s: instala `openssh` (repo Procursus/BigBoss). Arranca con
-`sudo dpkg-reconfigure openssh-server` si hace falta, y anota la IP del iPhone (Ajustes >
-Wi-Fi > icono (i) de la red conectada).
+Install Theos and an iOS 15 SDK, then from this directory:
 
-## 5. Copiar e instalar desde CachyOS
-```bash
-scp packages/*.deb mobile@<IP_DEL_IPHONE>:/tmp/
-ssh mobile@<IP_DEL_IPHONE> "sudo dpkg -i /tmp/$(basename packages/*.deb)"
-```
-Si CachyOS te bloquea el `scp` por firewall, revisa `sudo ufw status` o el equivalente
-con `firewalld`/`nftables` que tengas activo por defecto en esa instalación.
+    make package
 
-(usuario/contraseña por defecto en jailbreaks palera1n suele ser `mobile`/`alpine` y
-`root`/`alpine` — cámbialas si no lo has hecho ya, es lo primero que se prueba en
-cualquier escaneo de red).
+For rootful jailbreak:
 
-## 6. Uso, ya en el iPhone (por SSH o NewTerm2)
-```bash
-/var/jb/usr/bin/micdefault list
-/var/jb/usr/bin/micdefault set front
-/var/jb/usr/bin/micdefault get
-```
+    THEOS_PACKAGE_SCHEME=rootful make package
 
-Tras `set`, relanza la app en cuestión (no hace falta respring; el hook lee el plist
-en cada `setActive:` de AVAudioSession).
+For rootless:
 
-## Limitación conocida
-Esto controla el mic por defecto solo en apps de terceros que enlazan UIKit y usan
-`AVAudioSession` en su propio proceso (WhatsApp, Cámara, grabadoras...). No cubre
-Siri ni el daemon de llamadas, que gestionan audio directamente vía `mediaserverd`,
-fuera del alcance de este hook.
+    THEOS_PACKAGE_SCHEME=rootless make package
+
+The resulting .deb is placed in ./packages/
+
+## Important
+
+The preference path is currently rootless:
+
+    /var/jb/var/mobile/Library/Preferences/com.micselect.preferences.plist
+
+The diagnostic tweak currently loads only in SpringBoard. For actual
+microphone routing, the filter will need to target the audio-using
+processes, and the routing implementation must be adapted after checking
+the real AVAudioSession data sources on the device.
