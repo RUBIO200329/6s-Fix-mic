@@ -2,8 +2,8 @@ name: Build MicSelect
 
 on:
   push:
-    branches: [ main, master ]
-    tags: [ "v*" ]
+    branches: [main, master]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Theos dependencies
+      - name: Install dependencies
         run: |
           brew update
           brew install ldid
@@ -25,24 +25,70 @@ jobs:
           git clone --depth 1 https://github.com/theos/theos.git "$HOME/theos"
           echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
 
-      - name: Install SDK
+      - name: Install iOS SDK
         run: |
           git clone --depth 1 https://github.com/theos/sdks.git "$HOME/sdks"
-          mkdir -p "$HOME/theos/sdks"
-          cp -R "$HOME/sdks/iPhoneOS15.2.sdk" "$HOME/theos/sdks/" || true
 
-      - name: Verify toolchain
+          mkdir -p "$HOME/theos/sdks"
+
+          if [ ! -d "$HOME/sdks/iPhoneOS15.2.sdk" ]; then
+            echo "ERROR: iPhoneOS15.2.sdk no encontrado"
+            echo "SDKs disponibles:"
+            find "$HOME/sdks" -maxdepth 1 -type d -name "*.sdk" -print
+            exit 1
+          fi
+
+          cp -R "$HOME/sdks/iPhoneOS15.2.sdk" "$HOME/theos/sdks/"
+
+      - name: Verify architecture and SDK
         run: |
           export THEOS="$HOME/theos"
+
+          echo "=== Architecture ==="
+          uname -m
+
+          echo "=== SDK ==="
+          ls -ld "$THEOS/sdks/iPhoneOS15.2.sdk"
+
+          echo "=== SDK Settings ==="
+          xcrun --sdk iphoneos --show-sdk-version || true
+
+          echo "=== Theos SDKs ==="
+          find "$THEOS/sdks" -maxdepth 1 -type d -name "*.sdk" -print
+
+          echo "=== Make ==="
           make --version
-          test -d "$THEOS/sdks/iPhoneOS15.2.sdk"
+
+      - name: Verify Makefile
+        run: |
+          export THEOS="$HOME/theos"
+
+          grep -nE "ARCHS|TARGET|THEOS_PACKAGE_SCHEME" Makefile
+
+          if grep -q "i386" Makefile; then
+            echo "ERROR: i386 encontrado en Makefile"
+            exit 1
+          fi
 
       - name: Build Debian package
         env:
           THEOS: ${{ env.THEOS }}
         run: |
-          make clean
-          THEOS_PACKAGE_SCHEME=rootless make package FINALPACKAGE=1
+          make clean || true
+
+          THEOS_PACKAGE_SCHEME=rootless \
+          ARCHS=arm64 \
+          TARGET=iphone:clang:15.2:15.0 \
+          make package FINALPACKAGE=1
+
+      - name: Show package
+        if: always()
+        run: |
+          echo "=== Packages ==="
+          find packages -type f -maxdepth 1 -print 2>/dev/null || true
+
+          echo "=== Architecture references ==="
+          grep -R "i386" .theos 2>/dev/null | head -50 || true
 
       - name: Upload .deb
         uses: actions/upload-artifact@v4
