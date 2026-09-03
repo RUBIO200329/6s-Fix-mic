@@ -37,27 +37,36 @@ static AVAudioSessionPortDescription *portWithWantedSource(AVAudioSession *sessi
     return nil;
 }
 
+static void forceMic(NSString *origin) {
+    NSString *wanted = preferredOrientation();
+    AVAudioSessionPortDescription *port = portWithWantedSource([AVAudioSession sharedInstance], wanted);
+    if (port) {
+        NSError *err = nil;
+        [[AVAudioSession sharedInstance] setPreferredInput:port error:&err];
+        fileLog([NSString stringWithFormat:@"%@ -> preferredInput forzado (err: %@)", origin, err]);
+    }
+}
+
 %hook AVAudioSession
 
 - (BOOL)setActive:(BOOL)active error:(NSError **)outError {
     BOOL result = %orig;
-    if (active) {
-        fileLog(@"setActive disparado");
-        NSString *wanted = preferredOrientation();
-        AVAudioSessionPortDescription *port = portWithWantedSource(self, wanted);
-        if (port) {
-            NSError *err = nil;
-            [self setPreferredInput:port error:&err];
-            fileLog([NSString stringWithFormat:@"preferredInput forzado (err: %@)", err]);
-        }
-    }
+    fileLog(@"setActive disparado");
+    if (active) forceMic(@"setActive");
+    return result;
+}
+
+- (BOOL)setActive:(BOOL)active withOptions:(AVAudioSessionSetActiveOptions)options error:(NSError **)outError {
+    BOOL result = %orig;
+    fileLog(@"setActive:withOptions: disparado");
+    if (active) forceMic(@"setActive:withOptions:");
     return result;
 }
 
 - (BOOL)setPreferredInput:(AVAudioSessionPortDescription *)inPort error:(NSError **)outError {
     fileLog(@"setPreferredInput interceptado");
-    NSString *wanted = preferredOrientation();
     if ([inPort.portType isEqualToString:AVAudioSessionPortBuiltInMic]) {
+        NSString *wanted = preferredOrientation();
         portWithWantedSource(self, wanted);
     }
     return %orig(inPort, outError);
@@ -65,31 +74,23 @@ static AVAudioSessionPortDescription *portWithWantedSource(AVAudioSession *sessi
 
 %end
 
-%ctor {
-    fileLog(@"MicDefault cargado en proceso");
-}
-
 %hook AVAudioRecorder
 
 - (BOOL)prepareToRecord {
     fileLog(@"AVAudioRecorder prepareToRecord");
-    NSString *wanted = preferredOrientation();
-    portWithWantedSource([AVAudioSession sharedInstance], wanted);
-    [[AVAudioSession sharedInstance] setPreferredInput:portWithWantedSource([AVAudioSession sharedInstance], wanted) error:nil];
+    forceMic(@"prepareToRecord");
     return %orig;
 }
 
 - (BOOL)record {
     fileLog(@"AVAudioRecorder record");
-    NSString *wanted = preferredOrientation();
-    AVAudioSessionPortDescription *port = portWithWantedSource([AVAudioSession sharedInstance], wanted);
-    if (port) {
-        NSError *err = nil;
-        [[AVAudioSession sharedInstance] setPreferredInput:port error:&err];
-        fileLog([NSString stringWithFormat:@"record -> preferredInput forzado (err: %@)", err]);
-    }
+    forceMic(@"record");
     return %orig;
 }
 
 %end
+
+%ctor {
+    fileLog(@"MicDefault cargado en proceso");
+}
 
