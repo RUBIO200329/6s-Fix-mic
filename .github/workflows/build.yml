@@ -1,38 +1,62 @@
-name: Build Tweak
+name: Build MicSelect
 
 on:
   push:
     branches: [ main, master ]
+    tags: [ "v*" ]
+  pull_request:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-14
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Install Dependencies
+      - name: Install Theos dependencies
         run: |
+          brew update
           brew install ldid
 
-      - name: Setup Theos and SDKs
+      - name: Install Theos
         run: |
-          git clone --recursive https://github.com/theos/theos.git $HOME/theos
-          rm -rf $HOME/theos/sdks
-          git clone --depth=1 https://github.com/theos/sdks.git $HOME/theos/sdks
+          git clone --depth 1 https://github.com/theos/theos.git "$HOME/theos"
+          echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
 
-      - name: Build Package
+      - name: Install SDK
+        run: |
+          git clone --depth 1 https://github.com/theos/sdks.git "$HOME/sdks"
+          mkdir -p "$HOME/theos/sdks"
+          cp -R "$HOME/sdks/iPhoneOS15.2.sdk" "$HOME/theos/sdks/" || true
+
+      - name: Verify toolchain
+        run: |
+          export THEOS="$HOME/theos"
+          make --version
+          test -d "$THEOS/sdks/iPhoneOS15.2.sdk"
+
+      - name: Build Debian package
         env:
-          THEOS: /Users/runner/theos
+          THEOS: ${{ env.THEOS }}
         run: |
-          make package FINALPACKAGE=1
+          make clean
+          THEOS_PACKAGE_SCHEME=rootless make package FINALPACKAGE=1
 
-      - name: Upload DEB Artifact
+      - name: Upload .deb
         uses: actions/upload-artifact@v4
         with:
-          name: MicDefault-DEB
+          name: MicSelect-deb
           path: packages/*.deb
+          if-no-files-found: error
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MicSelect-build-logs
+          path: |
+            packages/*
+            .theos/log/*
+          if-no-files-found: ignore
