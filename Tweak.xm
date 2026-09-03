@@ -1,4 +1,4 @@
-#import <ellekit.h>  // o <substrate.h> según qué headers tengas para MSHookFunction
+#import <substrate.h>  // o <substrate.h> según qué headers tengas para MSHookFunction
 
 static OSStatus (*orig_AudioOutputUnitStart)(void *ci);
 static OSStatus hook_AudioOutputUnitStart(void *ci) {
