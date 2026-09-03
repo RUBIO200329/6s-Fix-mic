@@ -1,9 +1,9 @@
-Package: com.tuusuario.micdefault
-Name: MicDefault
-Depends: mobilesubstrate | firmware (>= 15.0)
-Version: 1.0
+Package: com.micselect.tweak
+Name: MicSelect
+Version: 0.1.0
 Architecture: iphoneos-arm64
-Description: Fuerza el microfono por defecto en todo el sistema
-Maintainer: Jose Manuel
-Author: Jose Manuel
+Description: Diagnostic microphone selector base for iOS 15
+Maintainer: MicSelect
+Author: MicSelect
 Section: Tweaks
+Depends: mobilesubstrate
