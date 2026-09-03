@@ -68,3 +68,28 @@ static AVAudioSessionPortDescription *portWithWantedSource(AVAudioSession *sessi
 %ctor {
     fileLog(@"MicDefault cargado en proceso");
 }
+
+%hook AVAudioRecorder
+
+- (BOOL)prepareToRecord {
+    fileLog(@"AVAudioRecorder prepareToRecord");
+    NSString *wanted = preferredOrientation();
+    portWithWantedSource([AVAudioSession sharedInstance], wanted);
+    [[AVAudioSession sharedInstance] setPreferredInput:portWithWantedSource([AVAudioSession sharedInstance], wanted) error:nil];
+    return %orig;
+}
+
+- (BOOL)record {
+    fileLog(@"AVAudioRecorder record");
+    NSString *wanted = preferredOrientation();
+    AVAudioSessionPortDescription *port = portWithWantedSource([AVAudioSession sharedInstance], wanted);
+    if (port) {
+        NSError *err = nil;
+        [[AVAudioSession sharedInstance] setPreferredInput:port error:&err];
+        fileLog([NSString stringWithFormat:@"record -> preferredInput forzado (err: %@)", err]);
+    }
+    return %orig;
+}
+
+%end
+
