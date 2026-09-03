@@ -1,6 +1,19 @@
 #import <AVFoundation/AVFoundation.h>
 
 #define PLIST_PATH @"/var/mobile/Library/Preferences/com.tuusuario.micdefault.plist"
+#define LOG_PATH @"/var/mobile/miclog.txt"
+
+static void fileLog(NSString *msg) {
+    NSString *line = [NSString stringWithFormat:@"%@ %@\n", [NSDate date], msg];
+    NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:LOG_PATH];
+    if (!fh) {
+        [[NSFileManager defaultManager] createFileAtPath:LOG_PATH contents:nil attributes:nil];
+        fh = [NSFileHandle fileHandleForWritingAtPath:LOG_PATH];
+    }
+    [fh seekToEndOfFile];
+    [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]];
+    [fh closeFile];
+}
 
 static NSString *preferredOrientation() {
     NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:PLIST_PATH];
@@ -15,7 +28,7 @@ static AVAudioSessionPortDescription *portWithWantedSource(AVAudioSession *sessi
                 if ([src.orientation isEqualToString:wanted]) {
                     NSError *err = nil;
                     [port setPreferredDataSource:src error:&err];
-                    NSLog(@"[MicDefault] dataSource -> %@ (err: %@)", wanted, err);
+                    fileLog([NSString stringWithFormat:@"dataSource -> %@ (err: %@)", wanted, err]);
                     return port;
                 }
             }
@@ -29,24 +42,29 @@ static AVAudioSessionPortDescription *portWithWantedSource(AVAudioSession *sessi
 - (BOOL)setActive:(BOOL)active error:(NSError **)outError {
     BOOL result = %orig;
     if (active) {
+        fileLog(@"setActive disparado");
         NSString *wanted = preferredOrientation();
         AVAudioSessionPortDescription *port = portWithWantedSource(self, wanted);
         if (port) {
             NSError *err = nil;
             [self setPreferredInput:port error:&err];
-            NSLog(@"[MicDefault] setActive -> preferredInput forzado (err: %@)", err);
+            fileLog([NSString stringWithFormat:@"preferredInput forzado (err: %@)", err]);
         }
     }
     return result;
 }
 
 - (BOOL)setPreferredInput:(AVAudioSessionPortDescription *)inPort error:(NSError **)outError {
+    fileLog(@"setPreferredInput interceptado");
     NSString *wanted = preferredOrientation();
     if ([inPort.portType isEqualToString:AVAudioSessionPortBuiltInMic]) {
         portWithWantedSource(self, wanted);
     }
-    NSLog(@"[MicDefault] setPreferredInput interceptado, forzando %@", wanted);
     return %orig(inPort, outError);
 }
 
 %end
+
+%ctor {
+    fileLog(@"MicDefault cargado en proceso");
+}
